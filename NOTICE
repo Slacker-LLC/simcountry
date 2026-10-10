@@ -1,0 +1,12 @@
+SimCountry
+Copyright 2026 the SimCountry contributors
+
+This product includes software developed for the Xposed framework.
+
+  Xposed API (libs/api-82.jar)
+  Copyright 2013-2021 rovo89 and contributors
+  Licensed under the Apache License, Version 2.0
+  https://github.com/rovo89/XposedBridge
+
+The Xposed API jar is a compile-time dependency only. None of its code is
+included in the built APK; at runtime the framework supplies these classes.

@@ -1,0 +1,10 @@
+out/
+*.apk
+*.idsig
+*.keystore
+*.jks
+tools/
+.gradle/
+local.properties
+*.iml
+.idea/
