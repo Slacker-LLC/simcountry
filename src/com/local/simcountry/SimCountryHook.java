@@ -38,36 +38,6 @@ public final class SimCountryHook implements IXposedHookLoadPackage {
     private static String ALPHA = "T-Mobile";
     private static boolean DEBUG = false;
 
-    private static final String[] COUNTRIES = {
-            "us:310:260:T-Mobile",
-            "ca:302:220:TELUS",
-            "gb:234:15:Vodafone UK",
-            "uk:234:15:Vodafone UK",
-            "de:262:01:Telekom.de",
-            "fr:208:01:Orange F",
-            "jp:440:10:NTT docomo",
-            "kr:450:05:SKTelecom",
-            "sg:525:01:SingTel",
-            "au:505:01:Telstra",
-            "hk:454:00:CSL",
-            "tw:466:92:Chunghwa Telecom",
-            "my:502:12:Maxis",
-            "th:520:01:AIS",
-            "vn:452:01:Viettel",
-            "ph:515:02:Globe",
-            "id:510:10:Telkomsel",
-            "in:404:45:Airtel",
-            "ru:250:01:MTS",
-            "br:724:06:Vivo",
-            "mx:334:020:Telcel",
-            "es:214:01:Vodafone ES",
-            "it:222:01:TIM",
-            "nl:204:04:Vodafone NL",
-            "tr:286:01:Turkcell",
-            "ae:424:02:Etisalat",
-            "sa:420:01:STC",
-    };
-
     private static boolean installed = false;
     private static final Set<String> SEEN =
             Collections.synchronizedSet(new HashSet<String>());
@@ -240,16 +210,20 @@ public final class SimCountryHook implements IXposedHookLoadPackage {
     }
 
     /**
-     * Runtime config, so no rebuild is needed to change country:
-     * persist.minis.simcountry / .simmcc / .simmnc / .simalpha / .simdebug
+     * Runtime config. The settings screen is the source of truth when it has
+     * saved a value, so a human's choice is never overridden by a leftover
+     * system property. Properties remain the fallback for command-line use.
      */
     private static void loadConfig() {
-        String iso = prop("persist.minis.simcountry");
-        if (iso == null) {
-            log("config: system properties unreadable, keeping built-in " + ISO);
-            return;
+        String iso = fromSharedPrefs();
+        String source = "shared prefs";
+        if (iso == null || iso.isEmpty()) {
+            iso = prop("persist.minis.simcountry");
+            source = "system property";
         }
-        if (!iso.isEmpty()) {
+        if (iso == null || iso.isEmpty()) {
+            log("config: nothing set, using built-in " + ISO);
+        } else {
             applyCountry(iso.toLowerCase(Locale.US));
         }
         String m = prop("persist.minis.simmcc");
@@ -267,7 +241,7 @@ public final class SimCountryHook implements IXposedHookLoadPackage {
         String d = prop("persist.minis.simdebug");
         DEBUG = "1".equals(d) || "true".equalsIgnoreCase(d);
         log("config: " + ISO + "/" + MCC + "/" + MNC + "/" + ALPHA
-                + (DEBUG ? " (debug)" : ""));
+                + " from " + source + (DEBUG ? " (debug)" : ""));
     }
 
     /** Keeps the country and the operator MCC/MNC consistent, like a real SIM. */
@@ -276,17 +250,29 @@ public final class SimCountryHook implements IXposedHookLoadPackage {
             log("refusing cn: nothing to spoof");
             return;
         }
-        for (String row : COUNTRIES) {
-            String[] f = row.split(":");
-            if (f[0].equals(iso)) {
-                ISO = f[0];
-                MCC = f[1];
-                MNC = f[2];
-                ALPHA = f[3];
-                return;
-            }
+        Countries.Entry e = Countries.find(iso);
+        if (e != null) {
+            ISO = e.iso;
+            MCC = e.mcc;
+            MNC = e.mnc;
+            ALPHA = e.carrier;
+            return;
         }
         ISO = iso;
+    }
+
+    /** Best effort: read what the settings UI saved. Never throws. */
+    private static String fromSharedPrefs() {
+        try {
+            de.robv.android.xposed.XSharedPreferences prefs =
+                    new de.robv.android.xposed.XSharedPreferences(
+                            ConfigStore.MODULE_PACKAGE, ConfigStore.PREFS);
+            prefs.reload();
+            return prefs.getString(ConfigStore.KEY_ISO, "");
+        } catch (Throwable t) {
+            log("shared prefs unavailable: " + t);
+            return null;
+        }
     }
 
     private static String prop(String key) {

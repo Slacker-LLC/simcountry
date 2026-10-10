@@ -4,7 +4,8 @@
 
 - 只注入 `com.zhiliaoapp.musically` 的进程，系统和其他应用看到的仍是真实 SIM
 - 不改时区、不改语言、不改设备指纹、不改商店区域
-- 国家可在运行时切换，不用重新编译
+- 带设置界面，点一下选国家即可
+- 本模块自身**不需要 root 权限**
 
 > [README (English)](README_EN.md)
 
@@ -29,10 +30,14 @@ TikTok 判断卡归属地用的是 `TelephonyManager.getSimCountryIso()` 这类�
 
 国家码和 MCC/MNC 一起替换。只换国家码而留着 `460` 的运营商前缀，两个信号对不上，反而更可疑。
 
+设置界面和 Hook 是两个进程：Hook 跑在 TikTok 里，读不到本应用私有目录，所以模块声明了 `xposedsharedprefs`，由框架把配置镜像到可读位置，Hook 通过 `XSharedPreferences` 取。因此**保存配置不需要 root**。
+
 ## 环境要求
 
 - 已 Root 的 Android 设备
 - 一个 Xposed 兼容框架（LSPosed、Zygisk 版 Vector 等），本项目不带框架
+
+本模块应用本身不需要 root。只有「点一下顺便帮你重启 TikTok」这个便利功能会尝试调用 `su`，拿不到就退回提示你手动重启。
 
 ## 构建
 
@@ -75,33 +80,42 @@ am force-stop com.zhiliaoapp.musically
 
 ## 使用
 
+打开桌面的 **SIM Country**，选一个国家，点「应用并重启 TikTok」。
+
+设置界面顶部是当前生效的配置，下面按列表选国家，每一项都标着对应的 MCC/MNC 和运营商，随时能看出这一项会让 TikTok 看到什么。
+
 当前默认伪装为**美国**（`us` / MCC-MNC `310260` / `T-Mobile`）。
 
-换国家不需要重编译，改一个系统属性，然后重启 TikTok：
+内置对照表（切国家时会连带把 MCC/MNC 和运营商名一起换掉）：
+
+| 值 | 国家 | 运营商 | 值 | 国家 | 运营商 |
+|---|---|---|---|---|---|
+| `us` | 美国 | T-Mobile | `tw` | 中国台湾 | Chunghwa Telecom |
+| `ca` | 加拿大 | TELUS | `my` | 马来西亚 | Maxis |
+| `gb` / `uk` | 英国 | Vodafone UK | `th` | 泰国 | AIS |
+| `de` | 德国 | Telekom.de | `vn` | 越南 | Viettel |
+| `fr` | 法国 | Orange F | `ph` | 菲律宾 | Globe |
+| `jp` | 日本 | NTT docomo | `id` | 印度尼西亚 | Telkomsel |
+| `kr` | 韩国 | SKTelecom | `ru` | 俄罗斯 | MTS |
+| `sg` | 新加坡 | SingTel | `br` | 巴西 | Vivo |
+| `au` | 澳大利亚 | Telstra | `mx` | 墨西哥 | Telcel |
+
+其余可选值：`es`（Vodafone ES）、`it`（TIM）、`nl`（Vodafone NL）、`tr`（Turkcell）、`ae`（Etisalat）、`sa`（STC）。
+
+> **中国香港和印度不在表里。** TikTok 已撤出香港，印度则从 2020 年起封禁，把卡伪装成这两个地区不会带来任何帮助，所以表里不提供。表里只放 TikTok 实际提供服务的地区。
+
+### 命令行方式
+
+不想用界面，或者要写进自动化脚本，直接设置系统属性也可以：
 
 ```bash
 setprop persist.minis.simcountry jp
 am force-stop com.zhiliaoapp.musically
 ```
 
-内置 27 国对照表，切国家时会连带把 MCC/MNC 和运营商名一起换掉：
+属性只在界面从未保存过配置时生效——界面保存过的选择优先，免得被残留的属性覆盖。
 
-| 值 | 国家 | 运营商 | 值 | 国家 | 运营商 |
-|---|---|---|---|---|---|
-| `us` | 美国 | T-Mobile | `tw` | 台湾 | Chunghwa Telecom |
-| `ca` | 加拿大 | TELUS | `my` | 马来西亚 | Maxis |
-| `gb` / `uk` | 英国 | Vodafone UK | `th` | 泰国 | AIS |
-| `de` | 德国 | Telekom.de | `vn` | 越南 | Viettel |
-| `fr` | 法国 | Orange F | `ph` | 菲律宾 | Globe |
-| `jp` | 日本 | NTT docomo | `id` | 印尼 | Telkomsel |
-| `kr` | 韩国 | SKTelecom | `in` | 印度 | Airtel |
-| `sg` | 新加坡 | SingTel | `ru` | 俄罗斯 | MTS |
-| `au` | 澳大利亚 | Telstra | `br` | 巴西 | Vivo |
-| `hk` | 香港 | CSL | `mx` | 墨西哥 | Telcel |
-
-其余可选值：`es`（Vodafone ES）、`it`（TIM）、`nl`（Vodafone NL）、`tr`（Turkcell）、`ae`（Etisalat）、`sa`（STC）。
-
-表里没有的国家也能填，只是只改国家码，MCC/MNC 保持原样。要精确指定：
+表里没有的国家也能填，此时只改国家码，MCC/MNC 保持原样。要精确指定：
 
 ```bash
 setprop persist.minis.simmcc 450
@@ -120,11 +134,13 @@ logcat -s SimCountry:*
 ```
 
 ```
-SimCountry: config: us/310/260/T-Mobile (debug)
-SimCountry: active in com.zhiliaoapp.musically, iso=us, numeric=310260, alpha=T-Mobile, hooks=22
-SimCountry: queried TelephonyManager.getSimCountryIso = us
-SimCountry: queried TelephonyManager.getSimOperator = 310260
+SimCountry: config: ca/302/220/TELUS from shared prefs
+SimCountry: active in com.zhiliaoapp.musically, iso=ca, numeric=302220, alpha=TELUS, hooks=22
+SimCountry: queried TelephonyManager.getSimCountryIso = ca
+SimCountry: queried TelephonyManager.getSimOperator = 302220
 ```
+
+第一行会说明配置是从 `shared prefs`（界面）还是 `system property`（命令行）读到的。
 
 ### 关闭与卸载
 

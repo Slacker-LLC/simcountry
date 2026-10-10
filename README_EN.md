@@ -4,7 +4,8 @@
 
 - Injects into `com.zhiliaoapp.musically` only; the system and every other app still see your real SIM
 - Does not change timezone, language, device fingerprint or store region
-- Country can be switched at runtime, no rebuild needed
+- Ships a settings screen: pick a country, tap apply
+- The module app itself needs **no root**
 
 > [README（中文）](README.md)
 
@@ -29,10 +30,14 @@ The module hooks a set of telephony APIs inside the TikTok process and substitut
 
 The country code and the MCC/MNC are substituted together. Changing only the country code while leaving a `460` operator prefix behind gives two signals that disagree, which looks more suspicious than either alone.
 
+The settings screen and the hook are two different processes. The hook runs inside TikTok and cannot read this app's private storage, so the module declares `xposedsharedprefs`: the framework mirrors the preferences somewhere readable and the hook picks them up through `XSharedPreferences`. **Saving a choice therefore needs no root.**
+
 ## Requirements
 
 - A rooted Android device
 - An Xposed-compatible framework (LSPosed, the Zygisk build of Vector, ...). This project ships no framework.
+
+The module app itself does not need root. The only convenience that tries to use `su` is the optional "restart TikTok for me" step, and when that fails it tells you to restart the app yourself.
 
 ## Build
 
@@ -75,16 +80,13 @@ am force-stop com.zhiliaoapp.musically
 
 ## Usage
 
+Open **SIM Country** from the launcher, pick a country, tap "apply and restart TikTok".
+
+The card at the top shows what is live right now. Every row in the list carries the MCC/MNC and carrier it would report, so you can see exactly what TikTok would be told.
+
 The default is **United States** (`us` / MCC-MNC `310260` / `T-Mobile`).
 
-Changing country needs no rebuild: set one system property, then restart TikTok.
-
-```bash
-setprop persist.minis.simcountry jp
-am force-stop com.zhiliaoapp.musically
-```
-
-There is a built-in table of 27 countries. Switching country keeps the MCC/MNC and carrier name consistent:
+Built-in table (switching country keeps the MCC/MNC and carrier name consistent):
 
 | Value | Country | Carrier | Value | Country | Carrier |
 |---|---|---|---|---|---|
@@ -94,14 +96,26 @@ There is a built-in table of 27 countries. Switching country keeps the MCC/MNC a
 | `de` | Germany | Telekom.de | `vn` | Vietnam | Viettel |
 | `fr` | France | Orange F | `ph` | Philippines | Globe |
 | `jp` | Japan | NTT docomo | `id` | Indonesia | Telkomsel |
-| `kr` | South Korea | SKTelecom | `in` | India | Airtel |
-| `sg` | Singapore | SingTel | `ru` | Russia | MTS |
-| `au` | Australia | Telstra | `br` | Brazil | Vivo |
-| `hk` | Hong Kong | CSL | `mx` | Mexico | Telcel |
+| `kr` | South Korea | SKTelecom | `ru` | Russia | MTS |
+| `sg` | Singapore | SingTel | `br` | Brazil | Vivo |
+| `au` | Australia | Telstra | `mx` | Mexico | Telcel |
 
 Also available: `es` (Vodafone ES), `it` (TIM), `nl` (Vodafone NL), `tr` (Turkcell), `ae` (Etisalat), `sa` (STC).
 
-Any other value is accepted too, but only the country code changes and the MCC/MNC stay as they are. To pin them explicitly:
+> **Hong Kong and India are deliberately absent.** TikTok has withdrawn from Hong Kong, and India has banned it since 2020; spoofing the card to either region cannot help, so the table only lists regions TikTok actually serves.
+
+### Command line
+
+If you would rather skip the UI, or you are scripting this, a system property works too:
+
+```bash
+setprop persist.minis.simcountry jp
+am force-stop com.zhiliaoapp.musically
+```
+
+The property is only consulted when the settings screen has never saved a choice, so a stale property can never override what a human picked.
+
+Any other value is accepted too, but then only the country code changes and the MCC/MNC stay as they are. To pin them explicitly:
 
 ```bash
 setprop persist.minis.simmcc 450
@@ -120,11 +134,13 @@ logcat -s SimCountry:*
 ```
 
 ```
-SimCountry: config: us/310/260/T-Mobile (debug)
-SimCountry: active in com.zhiliaoapp.musically, iso=us, numeric=310260, alpha=T-Mobile, hooks=22
-SimCountry: queried TelephonyManager.getSimCountryIso = us
-SimCountry: queried TelephonyManager.getSimOperator = 310260
+SimCountry: config: ca/302/220/TELUS from shared prefs
+SimCountry: active in com.zhiliaoapp.musically, iso=ca, numeric=302220, alpha=TELUS, hooks=22
+SimCountry: queried TelephonyManager.getSimCountryIso = ca
+SimCountry: queried TelephonyManager.getSimOperator = 302220
 ```
+
+The first line says whether the value came from `shared prefs` (the screen) or a `system property` (the command line).
 
 ### Disable and uninstall
 

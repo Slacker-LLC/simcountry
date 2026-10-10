@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SIM Country</string>
+    <string name="eyebrow_current">CURRENT SIM</string>
+    <string name="eyebrow_pick">选择归属地</string>
+    <string name="subtitle">只对 TikTok 生效。改完国家后请重启 TikTok。</string>
+    <string name="apply">应用并重启 TikTok</string>
+    <string name="applying">正在应用…</string>
+    <string name="pick_one">先选一个国家</string>
+    <string name="applied">已生效，TikTok 已重启</string>
+    <string name="saved_manual">已保存。请手动重启 TikTok 生效。</string>
+    <string name="save_failed">保存失败，换一次试试</string>
+    <string name="footer">注意：卡只是判断地区的一半，另一半是出口 IP。伪装成某个国家不代表 TikTok 一定能用。</string>
+</resources>

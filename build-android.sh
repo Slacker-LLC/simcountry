@@ -25,7 +25,8 @@ wrap() {
     return
   fi
   local emu=${QEMU:-qemu-x86_64-static}
-  command -v "$emu" >/dev/null 2>&1 || {
+  local emu_bin=${emu%% *}
+  command -v "$emu_bin" >/dev/null 2>&1 || {
     echo "cannot run $1 on this host; install qemu-user-static or set QEMU" >&2
     exit 1
   }
@@ -37,21 +38,32 @@ ZIPALIGN=$(wrap "$BT/zipalign")
 rm -rf "$OUT"
 mkdir -p "$OUT/classes" "$OUT/dex"
 
+echo "== aapt2 compile =="
+rm -rf "$OUT/res"
+mkdir -p "$OUT/res"
+$AAPT2 compile --dir "$ROOT/res" -o "$OUT/res"
+RES_ARGS=""
+for flat in "$OUT/res"/*.flat; do
+  RES_ARGS="$RES_ARGS -R $flat"
+done
+
+echo "== aapt2 link (also emits R.java) =="
+mkdir -p "$OUT/gen"
+$AAPT2 link -o "$OUT/base.apk" -I "$AJ" \
+  --manifest "$ROOT/AndroidManifest.xml" -A "$ROOT/assets" $RES_ARGS \
+  --auto-add-overlay --java "$OUT/gen" \
+  --min-sdk-version 27 --target-sdk-version 34 \
+  --version-code 2 --version-name 1.1.0
+
 echo "== javac =="
 # shellcheck disable=SC2046
 javac -source 8 -target 8 -nowarn -bootclasspath "$AJ" -cp "$API" \
-  -d "$OUT/classes" $(find "$ROOT/src" -name '*.java')
+  -d "$OUT/classes" $(find "$ROOT/src" "$OUT/gen" -name '*.java')
 
 echo "== d8 =="
 # shellcheck disable=SC2046
 "$BT/d8" --lib "$AJ" --min-api 27 --output "$OUT/dex" \
   $(find "$OUT/classes" -name '*.class')
-
-echo "== aapt2 =="
-$AAPT2 link -o "$OUT/base.apk" -I "$AJ" \
-  --manifest "$ROOT/AndroidManifest.xml" -A "$ROOT/assets" \
-  --min-sdk-version 27 --target-sdk-version 34 \
-  --version-code 1 --version-name 1.0
 
 echo "== pack dex =="
 cd "$OUT"
