@@ -125,6 +125,8 @@ setprop persist.minis.simalpha "SKTelecom"
 
 ### Troubleshooting
 
+**TikTok still sees the old country after you changed it?** The framework needs a moment to mirror the preference out. Right after you tap apply the file may not be readable yet, and a TikTok started in that window falls back to the previous value. Wait a little (or reopen SIM Country once) and restart TikTok again. The log line below shows which channel was actually used.
+
 Turn on debug logging, restart TikTok, and you will see which APIs it actually queries and what it gets back:
 
 ```bash
@@ -152,6 +154,7 @@ pm uninstall com.local.simcountry
 ## Known limitations
 
 - **The SIM is only half of how TikTok decides region**; the other half is usually your exit IP. A US SIM behind a domestic direct connection will most likely still be blocked.
+- **The module has to stay installed and enabled.** It is not a run-once settings tool: the hooking code is injected into TikTok's process on every launch, so uninstalling the module, or disabling it in the framework, ends the spoof immediately.
 - If TikTok already wrote "CN" into its own data, clearing the app data once may be needed.
 - The module loads when the process starts, so restarting TikTok is required after every config change.
 - Only the Java telephony API surface is covered. A build that reads the country code through another channel needs extra hooks.
