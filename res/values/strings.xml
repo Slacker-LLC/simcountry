@@ -8,7 +8,7 @@
     <string name="applying">正在应用…</string>
     <string name="pick_one">先选一个国家</string>
     <string name="applied">已生效，TikTok 已重启</string>
-    <string name="saved_manual">已保存。请手动重启 TikTok 生效。</string>
+    <string name="saved_manual">已保存。请先重新打开一次本应用，再重启 TikTok。</string>
     <string name="save_failed">保存失败，换一次试试</string>
     <string name="footer">注意：卡只是判断地区的一半，另一半是出口 IP。伪装成某个国家不代表 TikTok 一定能用。</string>
 </resources>
